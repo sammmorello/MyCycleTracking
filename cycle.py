@@ -61,3 +61,5 @@ print(df)
 # number of days menstruating
 print(df_filtered["Menstruation"].value_counts())
 
+print(df_filtered)
+
