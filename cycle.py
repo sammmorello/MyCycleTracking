@@ -61,5 +61,17 @@ print(df)
 # number of days menstruating
 print(df_filtered["Menstruation"].value_counts())
 
-print(df_filtered)
+# print(df_filtered)
 
+# conecting postgres
+from sqlalchemy import create_engine
+
+DATABASE_URL = "postgresql://postgres:pumpkinpostgre@localhost:5432/cycletracking_db"
+
+# creating database connection
+engine = create_engine(DATABASE_URL)
+print("connected to postgres (: )")
+
+df_filtered.to_sql("cycle_tracking", engine, if_exists="replace", index=False)
+
+print("data inserted into postgres successfully (:")
