@@ -64,14 +64,71 @@ print(df_filtered["Menstruation"].value_counts())
 # print(df_filtered)
 
 # conecting postgres
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, text # text: allows you to write raw SQL queries as text objects
 
-DATABASE_URL = "postgresql://postgres:pumpkinpostgre@localhost:5432/cycletracking_db"
+# lgit ignore
+import os
+from dotenv import load_dotenv
+load_dotenv()
+api_key = os.getenv('api_key')
+DATABASE_URL = api_key
 
 # creating database connection
 engine = create_engine(DATABASE_URL)
 print("connected to postgres (: )")
 
-df_filtered.to_sql("cycle_tracking", engine, if_exists="replace", index=False)
+# insert all data into cycle_tracking data
+df_filtered.to_sql("cycle_tracking",  engine, if_exists="replace", index=False)
+
+# create new df to exclude temp
+df_notemp = df_filtered.drop(columns=["Temperature"])
+df_notemp.to_sql("cycle_notemp",  engine, if_exists="replace", index=False)
+
+print("HEREEEEEEEE")
+print(df_filtered.head())
+
+# create new df to only inlcude date & temp
+df_datetemp = df_filtered.drop(columns=["Menstruation", "LH test", "Notes", "Data Flag", "Menstruation Quantity"])
+df_datetemp.to_sql("cycle_datetemp",  engine, if_exists="replace", index=False)
 
 print("data inserted into postgres successfully (:")
+
+# define SQL query
+# using text to write raw SQL query as text object
+query = text("""      
+    SELECT * FROM cycle_tracking 
+    WHERE "Date" BETWEEN '2024-01-01' AND '2024-05-01' 
+    AND "Menstruation" = 'MENSTRUATION'
+""")
+
+# execute the query and fetch results
+with engine.connect() as connection:
+    result = connection.execute(query)
+    #for row in result: # iterates through the results and prints each row
+        #print(row)     # prints all output
+    for row in result:  # prints only date[0] & temp[1] output
+        date = row[0]
+        temp = row[1]
+        print(f"Date: {date}, Temperature: {temp}")
+
+print('\nPrinting only Temps from cycle_notemp & cycle_date temp!!!\n')
+
+# define SQL query
+# using text to write raw SQL query as text object
+query = text("""      
+    -- to pull dates menstruating from cycle_notemp and then pull temp from cycle_datetemp
+SELECT cycle_notemp."Date", cycle_datetemp."Temperature" 
+FROM cycle_notemp 
+JOIN cycle_datetemp
+  ON cycle_notemp."Date" = cycle_datetemp."Date" 
+WHERE cycle_notemp."Date" BETWEEN '2024-01-01' AND '2024-05-01' AND cycle_notemp."Menstruation" = 'MENSTRUATION';
+""")
+
+# execute the query and fetch results
+with engine.connect() as connection:
+    result = connection.execute(query)
+    #for row in result: # iterates through the results and prints each row
+        #print(row)     # prints all output
+    for row in result:  # prints only date[0] & temp[1] output
+        temp = row[1]
+        print(f"Temperature: {temp}")
