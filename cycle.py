@@ -56,12 +56,7 @@ print(df_filtered["Date"].min(), df_filtered["Date"].max())
 print("Cleaned data:")
 print(df)
 
-# EDA
-
-# number of days menstruating
-print(df_filtered["Menstruation"].value_counts())
-
-# print(df_filtered)
+#POSTGRESQL
 
 # conecting postgres
 from sqlalchemy import create_engine, text # text: allows you to write raw SQL queries as text objects
@@ -84,7 +79,6 @@ df_filtered.to_sql("cycle_tracking",  engine, if_exists="replace", index=False)
 df_notemp = df_filtered.drop(columns=["Temperature"])
 df_notemp.to_sql("cycle_notemp",  engine, if_exists="replace", index=False)
 
-print("HEREEEEEEEE")
 print(df_filtered.head())
 
 # create new df to only inlcude date & temp
@@ -132,3 +126,44 @@ with engine.connect() as connection:
     for row in result:  # prints only date[0] & temp[1] output
         temp = row[1]
         print(f"Temperature: {temp}")
+
+query = text("""
+WITH cycle_starts AS (
+  SELECT
+    "Date" AS start_date,
+    EXTRACT(MONTH FROM "Date") AS start_month,
+    EXTRACT(YEAR FROM "Date") AS start_year,
+    LEAD("Date") OVER (ORDER BY "Date") AS next_start_date     --looks at the next row's value for "Date" , since we ORDER BY "Date", this gives you the date of the next period start
+  FROM cycle_tracking
+  WHERE "Menstruation" = 'MENSTRUATION'     --filters to just days that are period start days
+)
+SELECT
+  start_year,
+  start_month,
+  ROUND(AVG(EXTRACT(DAY FROM (next_start_date - start_date))), 2) AS avg_cycle_length_days     --calculates the number of days between periods = cycle length
+FROM cycle_starts
+WHERE next_start_date IS NOT NULL     --removes the last row because it doesn’t have a “next period” to compare to
+GROUP BY start_year, start_month    --groups all cycles in the same month/year together
+ORDER BY start_year, start_month;
+""")
+
+# execute the query and fetch results
+with engine.connect() as conn:  #cleaner, best practice approach
+    df_summary_cycle_length = pd.read_sql(query, conn) 
+    print(df_summary_cycle_length)
+
+
+
+
+
+
+
+
+# EDA
+
+# number of days menstruating
+#print(df_filtered["Menstruation"].value_counts())
+
+# matplotlib
+
+
